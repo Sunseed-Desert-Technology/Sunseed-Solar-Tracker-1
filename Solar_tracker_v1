@@ -1,5 +1,7 @@
+// This code was authored by the Appropriate Technology department at Sunseed Desert Technology. It is stable on Arduino 1.0.6 (although was written before this). Use at your own risk, try not to electrocute yo
+
 #include <Wire.h>
-#include <LiquidCrystal_I2C.h>   //In our case from DFRobot.com for their LCD display. Your LCD screen may need a different library and some subsequent changes to the LCD implementation.
+#include <LiquidCrystal_I2C.h>   //In our case from DFRobot.com for their 16x2 LCD display. Your LCD screen may need a different library and some subsequent changes to the LCD implementation.
 #include <DS1307new.h>
 #include <avr/pgmspace.h>
 
@@ -8,12 +10,12 @@
 
 
 // table for the number of clicks in every hour every month
-const int data_pos_prg[12][24]PROGMEM = { {-1,-1,-1,-1,-1,-1,-1,-1,-1,69,162,268,376,480,574,657,-3,-3,-3,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-1,62,153,259,367,472,567,650,-3,-3,-3,-3,-1,-1,-1,-1},
-                                          {-1,-1,-1,-1,-1,-1,-1,-1, 6,69,162,268,376,480,574,656,-3,-3,-3,-3,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,13,82,177,284,392,495,588,668,-3,-3,-3,-3,-3,-1,-1,-1},
+const int data_pos_prg[12][24]PROGMEM = { {-1,-1,-1,-1,-1,-1,-1,-1,-2,69,162,268,376,480,574,657,-3,-3,-3,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-2,62,153,259,367,472,567,650,-3,-3,-3,-3,-1,-1,-1,-1},
+                                          {-1,-1,-1,-1,-1,-1,-1,-2, 6,69,162,268,376,480,574,656,-3,-3,-3,-3,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-2,13,82,177,284,392,495,588,668,-3,-3,-3,-3,-3,-1,-1,-1},
                                           {-1,-1,-1,-1,-1,-1,-1,-2,16,88,184,292,400,502,594,673,-3,-3,-3,-3,-3,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-2,14,83,179,286,394,497,589,669,-3,-3,-3,-3,-3,-1,-1,-1},
                                           {-1,-1,-1,-1,-1,-1,-1,-2, 9,73,167,274,382,485,579,661,-3,-3,-3,-3,-3,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-2,10,75,170,276,384,488,581,662,-3,-3,-3,-3,-3,-1,-1,-1},
-                                          {-1,-1,-1,-1,-1,-1,-1,-1,17,89,186,293,401,503,595,674,-3,-3,-3,-3,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,26,103,203,311,418,519,608,685,-3,-3,-3,-1,-1,-1,-1,-1},
-                                          {-1,-1,-1,-1,-1,-1,-1,-1,-1,104,204,312,420,520,610,686,-3,-3,-3,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-1,98,197,305,412,513,604,681,-3,-3,-3,-1,-1,-1,-1,-1}};
+                                          {-1,-1,-1,-1,-1,-1,-1,-2,17,89,186,293,401,503,595,674,-3,-3,-3,-3,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,26,103,203,311,418,519,608,685,-3,-3,-3,-1,-1,-1,-1,-1},
+                                          {-1,-1,-1,-1,-1,-1,-1,-1,-2,104,204,312,420,520,610,686,-3,-3,-3,-1,-1,-1,-1,-1}, {-1,-1,-1,-1,-1,-1,-1,-1,-2,98,197,305,412,513,604,681,-3,-3,-3,-1,-1,-1,-1,-1}};
 
                       
 
@@ -63,7 +65,7 @@ const int pinEMERGENCY=3; // emergency button (INT1)
 const int pinCS = 10;  // SD card chipselect
 
 
-const int maxpos=700; // linear actuator maximal position in clicks
+const int maxpos=480; // linear actuator maximal position, in clicks    ***calibrate, v1: maxpos=700;
 const int REEDTIME=1; // reed switch debounce time
 const int BUTTONTIME=100; // emergency button debounce time
 const int LCD_MAX_STATE=9; // maximum display modes
@@ -97,7 +99,7 @@ uint16_t lastAddr;                      // new address for storing in NV-RAM
 uint16_t TimeIsSet = 0xaa55;            // Helper that time must not set again
 uint8_t timezone;
 
-/*void set_time()              // use this to set date and time once when RTC battery is replaced
+/*void set_time()              // use this to set date and time once when RTC battery is replaced  *settime
 {
     RTC.stopClock();
         
@@ -154,7 +156,7 @@ void setup()
   lcd.setCursor(0,0);
   lcd.print("Solar Tracker   ");
   lcd.setCursor(0,1);
-  lcd.print("          v0.96b");
+  lcd.print("          v2a");
   
   looptime = prevmaintime = prevlcdtime=prevlcdchangetime=BTNtime=prevBTNtime= clicktime= millis(); // initialize timers
   delay(2000);
@@ -263,8 +265,8 @@ void tracker_init()
   }
    do
     {    
-    inst_cons=analogRead(pinFBA);  // check if limitswitch clicked and stop only if it's off for a whole second
-    if (inst_cons==0) limitswitch++; else limitswitch=0;
+    inst_cons=analogRead(pinFBA);  // check if consumption is zero, end loop if it's off for a whole second   *****NOTE currently goes to MOVE if servo not in place*****
+    if (inst_cons==0) limitswitch++; else limitswitch=0;    //limitswitch used as a timer in order to remove any bounce type effect
     delay(100);
   } while ((limitswitch<10) && (tracker_state!=5));    // go east until limitswitch switches off
 
@@ -403,7 +405,7 @@ void loop()
   
   if ((tracker_state!=prevtracker_state) || (tracker_state==3) || (tracker_state==6)) {
   prevtracker_state=tracker_state;
-  switch (tracker_state) {
+  switch (tracker_state) {                                // ***This is where the KEY movement behaviour is described***
     case 0:                                 // sleep
       digitalWrite(pinENA, LOW);
       break;
@@ -504,11 +506,11 @@ void loop()
   } // endif  
   
   // read and map instant consumption
-  inst_cons=analogRead(pinFBA);
+  inst_cons=analogRead(pinFBA);              //Current consumption of servo is read from motor controller pinFBA
   inst_cons=map(inst_cons, 0, 1023, 0, 5000);
   inst_cons*=1000/525;
   
-  if (inst_cons>I_OVER) tracker_state=7; // if consumption is higher than I_OVER limit current go to overload state
+  if (inst_cons>I_OVER) tracker_state=7; // if servo current consumption is higher than I_OVER (limit current) go to overload state
     
   total_cons+=(inst_cons+BASE_CONS)*(looptime-prevlcdtime)/1000;   // calculate total consumption
   daily_cons+=(inst_cons+BASE_CONS)*(looptime-prevlcdtime)/1000;   // calculate daily consumption
@@ -516,8 +518,8 @@ void loop()
   
   prevlcdtime=looptime;
   
-  data_pos=pgm_read_word(&data_pos_prg[RTC.month-1][RTC.hour-timezone]);
-
+  data_pos=pgm_read_word(&data_pos_prg[RTC.month-1][RTC.hour-timezone]);   //subtracts summertime as not used in lookup table. 
+      // *** careful if changing the code of the effect of midnight being read as -1 during summertime - may need to change the previous line to an IF clause
 
 
   if (tracker_state < 4) 
@@ -541,7 +543,8 @@ void loop()
   } //endswitch
   
   
-switch (lcd_state) {
+  //********** This next part of code (within the switch) is used to control what is displayed on the LCD (except during initialisation)*****
+switch (lcd_state) {                        
   case  0:                                  // tracker status date and time
    lcd.setCursor(0,0);
    lcd.print(status_text[tracker_state]);
@@ -562,8 +565,8 @@ switch (lcd_state) {
    } //endswitch
    
   
-   lcd.setCursor(8,0);
-   if (RTC.hour < 10)                    // correct hour if necessary
+   lcd.setCursor(8,0);                   // this code block just prints the RTC time to the LCD
+   if (RTC.hour < 10)                    // ensures hour uses 2 digits
   {
     lcd.print("0");
     lcd.print(RTC.hour, DEC);
@@ -573,7 +576,7 @@ switch (lcd_state) {
     lcd.print(RTC.hour, DEC);
   }
     lcd.print(":");
-  if (RTC.minute < 10)                  // correct minute if necessary
+  if (RTC.minute < 10)                  // ensures minute value uses 2 digits
   {
     lcd.print("0");
     lcd.print(RTC.minute, DEC);
@@ -583,7 +586,7 @@ switch (lcd_state) {
     lcd.print(RTC.minute, DEC);
   }
     lcd.print(":");
-  if (RTC.second < 10)                  // correct second if necessary
+  if (RTC.second < 10)                  // ensures second value uses 2 digits
   {
     lcd.print("0");
     lcd.print(RTC.second, DEC);
@@ -595,7 +598,7 @@ switch (lcd_state) {
   
    
    lcd.setCursor(6,1);
-     if (RTC.day < 10)                    // correct date if necessary
+     if (RTC.day < 10)                    // ensure day uses 2 digits
   {
     lcd.print("0");
     lcd.print(RTC.day, DEC);
@@ -605,7 +608,7 @@ switch (lcd_state) {
     lcd.print(RTC.day, DEC);
   }
     lcd.print("-");
-  if (RTC.month < 10)                   // correct month if necessary
+  if (RTC.month < 10)                   // ensure month uses 2 digits
   {
     lcd.print("0");
     lcd.print(RTC.month, DEC);
@@ -618,7 +621,7 @@ switch (lcd_state) {
     lcd.print(RTC.year, DEC);   
 break;
 
-case 1:                                                // current position, next position, zenith angle, hour angle
+case 1:                                                // CP = current position (clicks), NP = next position (clicks)...
     lcd.setCursor(0,0);
      lcd.print("CP:");
      if (pos<100) lcd.print(" ");
@@ -631,7 +634,7 @@ case 1:                                                // current position, next
      if (newpos<10) lcd.print(" ");
      lcd.print(newpos);
      
-     lcd.setCursor(7,0);
+     lcd.setCursor(7,0);                                      //ZA = zenith angle, HA = Hour angle
      lcd.print("ZA: ");
 //     ram_zangle=pgm_read_word(&data_zangle[RTC.month-1][RTC.minute % 24]);
      ram_zangle=pgm_read_word(&data_zangle[RTC.month-1][RTC.hour-timezone]);
