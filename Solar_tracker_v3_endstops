@@ -57,7 +57,7 @@ const int pinD1A=6; // motor driver disable input pin (PWM)
 const int pinSFA=7; // motor driver status flag
 const int pinENA=8; // motor driver enable pin (sleep)
 const int pinFBA=14; // motor driver current sensor feedback
-const int pinCLKA=2; // reed switch sensor (INT0)
+const int pinCLKA=2; // read switch sensor (INT0)
 const int pinSENSE=1;// CD4051 output [sensor data]
 const int pinJOYx=2; // thumb slide joystick x [A2]
 const int pinJOYy=3; // thumb slide joystick y [A3]
@@ -66,7 +66,7 @@ const int pinCS = 10;  // SD card chipselect
 
 
 const int maxpos=480; // linear actuator maximal position, in clicks    ***calibrate, v1: maxpos=700;
-const int REEDTIME=1; // reed switch debounce time
+const int REEDTIME=1; // read switch debounce time
 const int BUTTONTIME=100; // emergency button debounce time
 const int LCD_MAX_STATE=9; // maximum display modes
 const int I_OVER=500; // overload current [mA]
@@ -405,7 +405,7 @@ void loop()
   
   if ((tracker_state!=prevtracker_state) || (tracker_state==3) || (tracker_state==6)) {
   prevtracker_state=tracker_state;
-  switch (tracker_state) {                                // ***This is where the KEY movement behaviour is described***
+  switch (tracker_state) {                                    // *** This is where what each tracker_state DOES is described. Look at Arduino reference for Switch to understand how broken down. 
     case 0:                                 // sleep
       digitalWrite(pinENA, LOW);
       break;
@@ -433,7 +433,7 @@ void loop()
      tracker_state=3;}
      break;
    case 3:                              // move
-     if (abs(pos-newpos)<2) 
+     if (abs(pos-newpos)<2 || (pos==100&&tracker_dir==1))            //****** DW ENDSTOP EDIT CHANGED V3 ******************************* 
            tracker_state=1;
    /*  else
        if (inst_cons==0) { if (abs(pos)<10) { pos=0; tracker_state=1;}        // to check at east if position resets to zero
@@ -543,8 +543,8 @@ void loop()
   } //endswitch
   
   
-  //********** This next part of code (within the switch) is used to control what is displayed on the LCD (except during initialisation)*****
-switch (lcd_state) {                        
+ //********** This next part of code (within the switch) is used to control what is displayed on the LCD (except during initialisation)*****
+switch (lcd_state) {
   case  0:                                  // tracker status date and time
    lcd.setCursor(0,0);
    lcd.print(status_text[tracker_state]);
